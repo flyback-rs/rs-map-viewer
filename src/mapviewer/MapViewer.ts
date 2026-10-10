@@ -179,9 +179,10 @@ export class MapViewer {
 
     initCache(cache: LoadedCache): void {
         this.loadedCache = cache;
+        // Start worker initialization first so it runs in parallel with the main thread's
+        this.workerPool.initCache(cache, this.objSpawns, this.npcSpawns);
         this.cacheSystem = CacheSystem.fromFiles(cache.type, cache.files);
         this.loaderFactory = getCacheLoaderFactory(cache.info, this.cacheSystem);
-        this.workerPool.initCache(cache, this.objSpawns, this.npcSpawns);
         this.clearMapImageUrls();
 
         this.textureLoader = this.loaderFactory.getTextureLoader();

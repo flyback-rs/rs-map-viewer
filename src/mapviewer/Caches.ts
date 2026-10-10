@@ -49,7 +49,7 @@ export async function loadCacheFiles(
         info.name,
         true,
         signal,
-        progressListener,
+        progressListener && onPercentChange(progressListener),
     );
 
     const xteas = await xteasPromise;
@@ -59,6 +59,19 @@ export async function loadCacheFiles(
         type: cacheType,
         files,
         xteas,
+    };
+}
+
+// Progress is reported per downloaded chunk, only forward it when the whole percentage changes
+function onPercentChange(listener: ProgressListener): ProgressListener {
+    let lastPercent = -1;
+    return (progress) => {
+        const percent =
+            progress.total > 0 ? Math.floor((progress.current / progress.total) * 100) : 0;
+        if (percent !== lastPercent) {
+            lastPercent = percent;
+            listener(progress);
+        }
     };
 }
 

@@ -347,7 +347,7 @@ async function fetchCachedFile(
 
     const buffer = partsToBuffer(parts, shared);
 
-    cache.put(
+    const fullFileUpdate = cache.put(
         path,
         new Response(ReadableBufferStream(buffer), {
             status: 200,
@@ -358,12 +358,11 @@ async function fetchCachedFile(
         }),
     );
 
-    if (incremental) {
-        await Promise.all(cacheUpdates);
-        for (const url of partUrls) {
-            cache.delete(url);
-        }
-    }
+    // Persisting to Cache Storage happens in the background, the data is already in memory.
+    // Parts of an incremental download are only removed once the full file has been stored.
+    Promise.all([fullFileUpdate, ...cacheUpdates])
+        .then(() => Promise.all(partUrls.map((url) => cache.delete(url))))
+        .catch(console.error);
 
     return {
         name,
