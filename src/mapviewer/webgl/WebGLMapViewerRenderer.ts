@@ -26,7 +26,7 @@ import { MapViewerRenderer } from "../MapViewerRenderer";
 import { MapViewerRendererType, WEBGL } from "../MapViewerRenderers";
 import { DrawRange, NULL_DRAW_RANGE } from "./DrawRange";
 import { InteractType } from "./InteractType";
-import { Interactions } from "./Interactions";
+import { Interactions, getInteractTile, getInteractType } from "./Interactions";
 import { WebGLMapSquare } from "./WebGLMapSquare";
 import { SdMapData } from "./loader/SdMapData";
 import { SdMapDataLoader } from "./loader/SdMapDataLoader";
@@ -166,6 +166,9 @@ export class WebGLMapViewerRenderer extends MapViewerRenderer<WebGLMapSquare> {
     hoveredMapIds: Set<number> = new Set();
     closestInteractIndices: Map<number, number[]> = new Map();
     interactBuffer?: Float32Array;
+    // Canvas pixel the interact buffer was read at
+    interactBufferX = -1;
+    interactBufferY = -1;
 
     npcRenderCount: number = 0;
     npcRenderData: Uint16Array = new Uint16Array(16 * 4);
@@ -1267,6 +1270,8 @@ export class WebGLMapViewerRenderer extends MapViewerRenderer<WebGLMapSquare> {
         );
         if (interactReady) {
             this.interactBuffer = interactions.interactBuffer;
+            this.interactBufferX = interactions.readX;
+            this.interactBufferY = interactions.readY;
         }
 
         if (!this.interactBuffer) {
@@ -1279,7 +1284,26 @@ export class WebGLMapViewerRenderer extends MapViewerRenderer<WebGLMapSquare> {
         const isMouseDown = inputManager.dragX !== -1 || inputManager.dragY !== -1;
         const picked = inputManager.pickX !== -1 && inputManager.pickY !== -1;
 
-        if (!interactReady && !picked) {
+        let clicked = false;
+        if (inputManager.clickX !== -1) {
+            if (this.mapViewer.menuOpen) {
+                // Clicking outside of an open menu closes it, like in game
+                inputManager.consumeClick();
+                this.mapViewer.closeMenu();
+                return;
+            }
+            // Wait for interactions read where the click was
+            const maxDistance = 4 * pixelRatio;
+            clicked =
+                interactReady &&
+                Math.abs(this.interactBufferX - inputManager.clickX * pixelRatio) <= maxDistance &&
+                Math.abs(this.interactBufferY - inputManager.clickY * pixelRatio) <= maxDistance;
+            if (clicked || performance.now() - inputManager.clickTime > 500) {
+                inputManager.consumeClick();
+            }
+        }
+
+        if (!interactReady && !picked && !clicked) {
             return;
         }
 
@@ -1298,7 +1322,7 @@ export class WebGLMapViewerRenderer extends MapViewerRenderer<WebGLMapSquare> {
             return;
         }
 
-        if (!picked && !this.mapViewer.tooltips) {
+        if (!picked && !clicked && !this.mapViewer.tooltips) {
             this.mapViewer.closeMenu();
             return;
         }
@@ -1317,7 +1341,7 @@ export class WebGLMapViewerRenderer extends MapViewerRenderer<WebGLMapSquare> {
             }
             for (const index of indices) {
                 const interactId = this.interactBuffer[index];
-                const interactType = this.interactBuffer[index + 2];
+                const interactType = getInteractType(this.interactBuffer, index);
                 if (interactType === InteractType.LOC) {
                     const locType = this.mapViewer.locTypeLoader.load(interactId);
                     if (locType.name === "null" && !this.mapViewer.debugId) {
@@ -1328,17 +1352,27 @@ export class WebGLMapViewerRenderer extends MapViewerRenderer<WebGLMapSquare> {
                     }
                     locIds.add(interactId);
 
+                    const tile = getInteractTile(this.interactBuffer, index);
                     for (const option of locType.actions) {
                         if (!option) {
                             continue;
                         }
+                        // Options like Climb-down or Enter move the camera to where they lead
+                        const transport = this.mapViewer.transports?.find(
+                            locType.id,
+                            option,
+                            locType.name,
+                            tile,
+                        );
                         menuEntries.push({
                             option,
                             targetId: locType.id,
                             targetType: MenuTargetType.LOC,
                             targetName: locType.name,
                             targetLevel: -1,
-                            onClick: this.mapViewer.closeMenu,
+                            onClick: transport
+                                ? () => this.mapViewer.goToTransport(transport)
+                                : this.mapViewer.closeMenu,
                         });
                     }
 
@@ -1445,6 +1479,13 @@ export class WebGLMapViewerRenderer extends MapViewerRenderer<WebGLMapSquare> {
             targetLevel: -1,
             onClick: this.mapViewer.closeMenu,
         });
+
+        // Left clicking does the top option, like in game
+        if (clicked) {
+            const entry = menuEntries[0];
+            entry.onClick?.(entry);
+            return;
+        }
 
         this.mapViewer.menuOpen = picked;
         if (picked) {

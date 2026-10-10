@@ -1,5 +1,31 @@
 import PicoGL from "picogl";
 
+import { InteractType } from "./InteractType";
+
+// Each pixel of the interact buffer is (interact id, map square id, interact info, 1.0),
+// where the info packs the interact type with the plane and tile (see main.vert.glsl)
+
+export function getInteractType(interactBuffer: Float32Array, index: number): InteractType {
+    return interactBuffer[index + 2] & 0x3;
+}
+
+export type InteractTile = {
+    x: number;
+    y: number;
+    plane: number;
+};
+
+// World tile of the interacted pixel, only encoded for locs and objs
+export function getInteractTile(interactBuffer: Float32Array, index: number): InteractTile {
+    const mapId = interactBuffer[index + 1];
+    const info = interactBuffer[index + 2];
+    return {
+        x: (mapId >> 8) * 64 + ((info >> 4) & 0xff) - 64,
+        y: (mapId & 0xff) * 64 + ((info >> 12) & 0xff) - 64,
+        plane: (info >> 2) & 0x3,
+    };
+}
+
 export class Interactions {
     interactSize: number;
 
@@ -11,6 +37,10 @@ export class Interactions {
 
     offsetX = 0;
     offsetY = 0;
+
+    // Canvas pixel the last read was centered on
+    readX = -1;
+    readY = -1;
 
     readWidth = 0;
     readHeight = 0;
@@ -24,6 +54,9 @@ export class Interactions {
         if (this.sync) {
             return;
         }
+
+        this.readX = x;
+        this.readY = y;
 
         const canvasWidth = gl.canvas.width;
         const canvasHeight = gl.canvas.height;
@@ -84,8 +117,8 @@ export class Interactions {
                     hoveredMapIds.add(mapId);
                 }
 
-                const interactType = this.interactBuffer[index + 2];
-                if (interactType !== 0) {
+                const interactType = getInteractType(this.interactBuffer, index);
+                if (interactType !== InteractType.NONE) {
                     const dist = Math.max(
                         Math.abs(x + this.offsetX - this.interactRadius),
                         Math.abs(y + this.offsetY - this.interactRadius),

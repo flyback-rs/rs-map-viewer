@@ -123,12 +123,18 @@ void main() {
     v_fogAmount = isLoading * max(1.0 - loadAlpha, v_fogAmount) +
         (1.0 - isLoading) * v_fogAmount;
 
-    float interactType = when_neq(v_fogAmount, 1.0) * float(modelInfo.interactType);
+    uint interactType = uint(when_neq(v_fogAmount, 1.0)) * modelInfo.interactType;
+
+    // Pack the plane and tile (relative to the map square, offset by 64) with the interact type,
+    // small enough to be exact as a float. Alpha has to stay 1.0 for blending.
+    uvec2 interactTile = uvec2(clamp(ivec2(floor(localPos.xz)) - ivec2(u_mapPos) * 64 + 64, 0, 255));
+    uint interactInfo = interactType == 0u ? 0u :
+        interactType | (modelInfo.plane << 2u) | (interactTile.x << 4u) | (interactTile.y << 12u);
 
     v_interactId = vec4(
         float(modelInfo.interactId),
         float(uint(u_mapPos.x) << 8u | uint(u_mapPos.y)),
-        interactType,
+        float(interactInfo),
         1.0
     );
 

@@ -15,6 +15,7 @@ import { VarType } from "../rs/config/vartype/VarType";
 import { MapFileIndex, getMapSquareId } from "../rs/map/MapFileIndex";
 import { SeqFrameLoader } from "../rs/model/seq/SeqFrameLoader";
 import { Pathfinder } from "../rs/pathfinder/Pathfinder";
+import { Scene } from "../rs/scene/Scene";
 import { TextureLoader } from "../rs/texture/TextureLoader";
 import { isTouchDevice, isWallpaperEngine } from "../util/DeviceUtil";
 import { CacheList, LoadedCache } from "./Caches";
@@ -25,6 +26,7 @@ import { MapViewerRenderer } from "./MapViewerRenderer";
 import { MapViewerRendererType, createRenderer } from "./MapViewerRenderers";
 import { NpcSpawn } from "./data/npc/NpcSpawn";
 import { ObjSpawn } from "./data/obj/ObjSpawn";
+import { Transport, Transports, loadTransports } from "./data/transport/Transports";
 import { RenderDataWorkerPool } from "./worker/RenderDataWorkerPool";
 
 const DEFAULT_RENDER_DISTANCE = isWallpaperEngine ? 512 : 128;
@@ -89,6 +91,8 @@ export class MapViewer {
     loadingMapImageIds: Set<number> = new Set();
 
     cameraSpeed: number = 1;
+
+    transports?: Transports;
 
     constructor(
         readonly workerPool: RenderDataWorkerPool,
@@ -180,6 +184,7 @@ export class MapViewer {
 
     initCache(cache: LoadedCache): void {
         this.loadedCache = cache;
+        this.loadTransports(cache);
         // Start worker initialization first so it runs in parallel with the main thread's
         this.workerPool.initCache(cache, this.objSpawns, this.npcSpawns);
         this.cacheSystem = CacheSystem.fromFiles(cache.type, cache.files);
@@ -242,6 +247,31 @@ export class MapViewer {
     updateSearchParams(): void {
         this.needsSearchParamUpdate = true;
         this.lastTimeSearchParamsUpdated = performance.now();
+    }
+
+    // Transport data only applies to Old School caches
+    loadTransports(cache: LoadedCache): void {
+        this.transports = undefined;
+        if (cache.info.game !== "oldschool") {
+            return;
+        }
+        loadTransports()
+            .then((transports) => {
+                if (this.loadedCache === cache) {
+                    this.transports = transports;
+                }
+            })
+            .catch((e) => console.warn("Transports unavailable", e));
+    }
+
+    // Moves the camera to where a transport leads, keeping its height above the plane
+    goToTransport(transport: Transport): void {
+        const { origin, destination } = transport;
+        this.camera.pos[0] = destination.x + 0.5;
+        this.camera.pos[2] = destination.y + 0.5;
+        this.camera.pos[1] -= ((destination.plane - origin.plane) * Scene.UNITS_LEVEL_HEIGHT) / 128;
+        this.camera.updated = true;
+        this.closeMenu();
     }
 
     closeMenu = () => {

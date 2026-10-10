@@ -43,6 +43,15 @@ export class InputManager {
     pickX: number = -1;
     pickY: number = -1;
 
+    // Left click without dragging, pending until consumeClick() since interactions are read
+    // asynchronously
+    clickX: number = -1;
+    clickY: number = -1;
+    clickTime: number = 0;
+
+    leftDownX: number = -1;
+    leftDownY: number = -1;
+
     positionJoystickEvent?: IJoystickUpdateEvent;
     cameraJoystickEvent?: IJoystickUpdateEvent;
 
@@ -205,6 +214,9 @@ export class InputManager {
             // Don't start the browser's middle click autoscroll
             event.preventDefault();
         }
+        if (event.button === 0) {
+            [this.leftDownX, this.leftDownY] = getMousePos(this.element, event);
+        }
         const [x, y] = getMousePos(this.element, event);
         this.dragX = x;
         this.dragY = y;
@@ -230,6 +242,25 @@ export class InputManager {
     private onMouseUp = (event: MouseEvent) => {
         this.dragX = -1;
         this.dragY = -1;
+
+        // A left click that barely moved isn't a drag. Ignore the second click of a double
+        // click, which enters pointer lock.
+        if (event.button === 0 && this.leftDownX !== -1 && this.element) {
+            const [x, y] = getMousePos(this.element, event);
+            const maxMove = 4;
+            if (
+                Math.abs(x - this.leftDownX) <= maxMove &&
+                Math.abs(y - this.leftDownY) <= maxMove &&
+                event.detail <= 1 &&
+                !this.isPointerLock()
+            ) {
+                this.clickX = x;
+                this.clickY = y;
+                this.clickTime = performance.now();
+            }
+        }
+        this.leftDownX = -1;
+        this.leftDownY = -1;
     };
 
     private onMouseLeave = (event: MouseEvent) => {
@@ -305,6 +336,11 @@ export class InputManager {
         this.keys.clear();
         this.resetMouse();
     };
+
+    consumeClick() {
+        this.clickX = -1;
+        this.clickY = -1;
+    }
 
     resetMouse() {
         this.mouseX = -1;

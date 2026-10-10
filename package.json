@@ -16,6 +16,7 @@
     "prepare": "husky",
     "download-caches": "node scripts/download-caches.js",
     "update-var-names": "node scripts/update-var-names.js",
+    "update-transports": "node scripts/update-transports.js",
     "export-textures": "tsx scripts/cache/export-textures.ts",
     "export-height-map": "tsx scripts/cache/export-height-map.ts"
   },
