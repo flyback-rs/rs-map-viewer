@@ -8,6 +8,8 @@ A webapp for exploring current and historical versions of RuneScape.
 
 ## Running locally
 
+Requires [Node.js](https://nodejs.org/) 22.22 or newer.
+
 ```
 $ git clone https://github.com/dennisdev/rs-map-viewer.git
 $ cd rs-map-viewer
@@ -16,15 +18,17 @@ $ yarn run download-caches
 $ yarn start
 ```
 
+`yarn build` type checks and creates a production build in `build/`, which `yarn preview` serves locally.
+
 ## Credits
 
--   Jagex
--   [RuneLite](https://github.com/runelite/runelite)
--   [OpenRS2 Archive](https://archive.openrs2.org/) - Caches
--   [RuneScape Archive](https://rs-archive.github.io/) - Caches
--   [OSRS Wiki](https://oldschool.runescape.wiki/) - Item spawns
--   [2004scape](https://github.com/2004scape/Server) - Npc spawns
--   [2009scape](https://gitlab.com/2009scape/2009scape) - Npc spawns
--   [RuneStar](https://github.com/RuneStar/fonts) - Fonts
--   [Blurite](https://github.com/blurite/pathfinder) - Some pathfinding stuff
--   [RuneApps Model Viewer](https://github.com/skillbert/rsmv) - Some procedural texture stuff
+- Jagex
+- [RuneLite](https://github.com/runelite/runelite)
+- [OpenRS2 Archive](https://archive.openrs2.org/) - Caches
+- [RuneScape Archive](https://rs-archive.github.io/) - Caches
+- [OSRS Wiki](https://oldschool.runescape.wiki/) - Item spawns
+- [2004scape](https://github.com/2004scape/Server) - Npc spawns
+- [2009scape](https://gitlab.com/2009scape/2009scape) - Npc spawns
+- [RuneStar](https://github.com/RuneStar/fonts) - Fonts
+- [Blurite](https://github.com/blurite/pathfinder) - Some pathfinding stuff
+- [RuneApps Model Viewer](https://github.com/skillbert/rsmv) - Some procedural texture stuff

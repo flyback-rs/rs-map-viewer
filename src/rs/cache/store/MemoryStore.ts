@@ -10,7 +10,7 @@ export class MemoryStore implements CacheStore<ApiType.SYNC> {
     static fromFiles(cacheFiles: CacheFiles, indicesToLoad: number[] = []): MemoryStore {
         const files = cacheFiles.files;
 
-        const indexFiles: ArrayBuffer[] = [];
+        const indexFiles: ArrayBufferLike[] = [];
         const indicesSet = new Set(indicesToLoad);
         for (const [name, data] of files.entries()) {
             if (
@@ -34,12 +34,12 @@ export class MemoryStore implements CacheStore<ApiType.SYNC> {
     }
 
     constructor(
-        readonly dataFile: ArrayBuffer,
-        readonly indexFiles: (ArrayBuffer | undefined)[],
-        readonly metaFile?: ArrayBuffer,
+        readonly dataFile: ArrayBufferLike,
+        readonly indexFiles: (ArrayBufferLike | undefined)[],
+        readonly metaFile?: ArrayBufferLike,
     ) {}
 
-    getIndexFile(indexId: number): ArrayBuffer | undefined {
+    getIndexFile(indexId: number): ArrayBufferLike | undefined {
         if (indexId === CacheIndex.META_INDEX_ID) {
             return this.metaFile;
         }

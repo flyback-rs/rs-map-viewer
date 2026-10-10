@@ -2,97 +2,56 @@
   "name": "rs-map-viewer",
   "version": "0.1.0",
   "private": true,
-  "dependencies": {
-    "@foxglove/wasm-bz2": "^0.1.1",
-    "@testing-library/jest-dom": "^5.14.1",
-    "@testing-library/react": "^13.0.0",
-    "@testing-library/user-event": "^13.2.1",
-    "@types/jest": "^27.0.1",
-    "@types/node": "^16.7.13",
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
-    "@webgpu/types": "^0.1.40",
-    "bzip2": "^0.1.1",
-    "denque": "^2.1.0",
-    "fast-memoize": "^2.5.2",
-    "file-saver": "^2.0.5",
-    "gl-matrix": "^3.4.3",
-    "java-random": "^0.4.0",
-    "js-xxhash": "^2.0.0",
-    "jszip": "^3.10.1",
-    "leva": "^0.9.35",
-    "pako": "^2.1.0",
-    "picogl": "^0.17.9",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-joystick-component": "^6.2.1",
-    "react-modal": "^3.16.1",
-    "react-router-dom": "^6.14.2",
-    "react-scripts": "5.0.1",
-    "react-select": "^5.7.4",
-    "threads": "^1.7.0",
-    "typescript": "^5.1.6",
-    "usehooks-ts": "^2.9.1",
-    "wasm-gzip": "^1.0.1",
-    "web-vitals": "^2.1.0",
-    "webfontloader": "^1.6.28",
-    "xxhash-wasm": "^1.0.2"
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.1"
   },
   "scripts": {
-    "start": "craco start",
-    "build": "craco build",
-    "test": "craco test",
+    "start": "vite",
+    "build": "yarn typecheck && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc && tsc -p tsconfig.node.json",
     "lint": "prettier --write \"./**/*.{js,ts,jsx,tsx,css,md}\"",
-    "prepare": "husky install",
+    "prepare": "husky",
     "download-caches": "node scripts/download-caches.js",
-    "export-textures": "npx tsx scripts/cache/export-textures.ts",
-    "export-height-map": "npx tsx scripts/cache/export-height-map.ts"
+    "export-textures": "tsx scripts/cache/export-textures.ts",
+    "export-height-map": "tsx scripts/cache/export-height-map.ts"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+  "dependencies": {
+    "@foxglove/wasm-bz2": "^0.3.0",
+    "denque": "^2.1.0",
+    "fflate": "^0.8.3",
+    "gl-matrix": "^3.4.4",
+    "java-random": "^0.4.0",
+    "leva": "^0.10.1",
+    "picogl": "^0.17.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-joystick-component": "^6.2.1",
+    "react-modal": "^3.16.3",
+    "react-router": "^8.4.0",
+    "react-select": "^5.10.2",
+    "usehooks-ts": "^3.1.1",
+    "xxhash-wasm": "^1.1.0"
   },
-  "browserslist": {
-    "production": [
-      "chrome >= 67",
-      "edge >= 79",
-      "firefox >= 68",
-      "opera >= 54",
-      "safari >= 14"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/react-modal": "^3.16.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "@webgpu/types": "^0.1.74",
+    "adm-zip": "^0.6.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.9",
+    "sharp": "^0.35.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
   },
   "lint-staged": {
     "*.{js,ts,jsx,tsx,css,md}": "prettier --write"
-  },
-  "devDependencies": {
-    "@craco/craco": "^7.1.0",
-    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
-    "@types/file-saver": "^2.0.7",
-    "@types/gzip-js": "^0.3.3",
-    "@types/pako": "^2.0.3",
-    "@types/react-modal": "^3.16.0",
-    "@types/webfontloader": "^1.6.35",
-    "adm-zip": "^0.5.10",
-    "husky": "^8.0.3",
-    "json-minimizer-webpack-plugin": "^4.0.0",
-    "lint-staged": "^13.2.3",
-    "path": "^0.12.7",
-    "prettier": "^3.0.0",
-    "sharp": "^0.32.6",
-    "threads-plugin": "^1.4.0",
-    "ts-node": "^10.9.1",
-    "ts-shader-loader": "^2.0.2"
   }
 }

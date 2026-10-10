@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { JSX, useCallback, useEffect, useRef, useState } from "react";
 import { Joystick } from "react-joystick-component";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 
 import { RendererCanvas } from "../components/renderer/RendererCanvas";
 import { OsrsLoadingBar } from "../components/rs/loading/OsrsLoadingBar";
@@ -34,7 +34,7 @@ export function MapViewerContainer({ mapViewer }: MapViewerContainerProps): JSX.
 
     const [menuProps, setMenuProps] = useState<OsrsMenuProps | undefined>(undefined);
 
-    const requestRef = useRef<number | undefined>();
+    const requestRef = useRef<number | undefined>(undefined);
 
     const animate = (time: DOMHighResTimeStamp) => {
         // Wait for 200ms before updating search params

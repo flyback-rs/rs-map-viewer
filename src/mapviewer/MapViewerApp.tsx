@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { registerSerializer } from "threads";
-import WebFont from "webfontloader";
+import { JSX, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { OsrsLoadingBar } from "../components/rs/loading/OsrsLoadingBar";
 import { DownloadProgress } from "../rs/cache/CacheFiles";
+import { Bzip2 } from "../rs/compression/Bzip2";
 import { formatBytes } from "../util/BytesUtil";
 import { isIos, isWallpaperEngine } from "../util/DeviceUtil";
 import { fetchCacheList, loadCacheFiles } from "./Caches";
@@ -13,16 +12,14 @@ import { MapViewerContainer } from "./MapViewerContainer";
 import { WEBGL, getAvailableRenderers } from "./MapViewerRenderers";
 import { fetchNpcSpawns, getNpcSpawnsUrl } from "./data/npc/NpcSpawn";
 import { fetchObjSpawns } from "./data/obj/ObjSpawn";
-import { renderDataLoaderSerializer } from "./worker/RenderDataLoader";
 import { RenderDataWorkerPool } from "./worker/RenderDataWorkerPool";
 
-registerSerializer(renderDataLoaderSerializer);
+for (const font of ["OSRS Bold", "OSRS Small"]) {
+    document.fonts.load(`16px "${font}"`).catch(console.error);
+}
 
-WebFont.load({
-    custom: {
-        families: ["OSRS Bold", "OSRS Small"],
-    },
-});
+// The main thread also decodes cache data
+const compressionPromise = Bzip2.initWasm();
 
 const cachesPromise = fetchCacheList();
 
@@ -60,6 +57,7 @@ function MapViewerApp() {
                 loadCacheFiles(cacheInfo, abortController.signal, setDownloadProgress),
                 objSpawnsPromise,
                 fetchNpcSpawns(getNpcSpawnsUrl(cacheInfo)),
+                compressionPromise,
             ]);
 
             const mapImageCache = await caches.open("map-images");

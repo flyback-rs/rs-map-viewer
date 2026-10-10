@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { JSX, useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { MenuEntry, MenuTargetType } from "../../../rs/MenuEntry";
 import "./OsrsMenu.css";

@@ -28,14 +28,10 @@ export function loadCacheFiles(cache: CacheInfo): CacheFiles {
 
     fs.readdirSync(cachePath).forEach((fileName: string) => {
         const buffer = fs.readFileSync(cachePath + fileName);
-
-        const newBuffer = new ArrayBuffer(buffer.byteLength);
-        const newView = new Uint8Array(newBuffer);
-        for (let i = 0; i < buffer.byteLength; i++) {
-            newView[i] = buffer[i];
-        }
-
-        files.set(fileName, newBuffer);
+        files.set(
+            fileName,
+            buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
+        );
     });
 
     return new CacheFiles(files);

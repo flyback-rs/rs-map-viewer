@@ -1,15 +1,8 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 
 import "./index.css";
 import MapViewerApp from "./mapviewer/MapViewerApp";
-import reportWebVitals from "./reportWebVitals";
-import { Bzip2 } from "./rs/compression/Bzip2";
-import { Gzip } from "./rs/compression/Gzip";
-
-Bzip2.initWasm();
-Gzip.initWasm();
 
 window.wallpaperPropertyListener = {
     applyGeneralProperties: (properties: any) => {
@@ -27,8 +20,3 @@ root.render(
     </BrowserRouter>,
     // </React.StrictMode>,
 );
-
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();

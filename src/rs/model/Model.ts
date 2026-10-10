@@ -16,7 +16,7 @@ export class Model extends Entity {
     static animateOriginY: number = 0;
     static animateOriginZ: number = 0;
 
-    static sketetalTransformMatrix: mat4 = mat4.create();
+    static sketetalTransformMatrix: Float32Array = mat4.create() as Float32Array;
     static skeletalScalingMatrix: mat4 = mat4.create();
     static skeletalBoneMatrix: mat4 = mat4.create();
 

@@ -3,6 +3,7 @@ import sharp from "sharp";
 
 import { CacheSystem } from "../../src/rs/cache/CacheSystem";
 import { getCacheLoaderFactory } from "../../src/rs/cache/loader/CacheLoaderFactory";
+import { Bzip2 } from "../../src/rs/compression/Bzip2";
 import { LocModelLoader } from "../../src/rs/config/loctype/LocModelLoader";
 import { LocLoadType, SceneBuilder } from "../../src/rs/scene/SceneBuilder";
 import { loadCache, loadCacheInfos, loadCacheList } from "./load-util";
@@ -33,6 +34,8 @@ function saveHeightMapToPng(
         .toFile(outputPath)
         .catch((err) => console.error(err));
 }
+
+await Bzip2.initWasm();
 
 const caches = loadCacheInfos();
 const cacheList = loadCacheList(caches);

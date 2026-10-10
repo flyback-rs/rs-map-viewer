@@ -1,58 +1,39 @@
-import { ModuleThread, Pool, spawn } from "threads";
-import { QueuedTask } from "threads/dist/master/pool";
-import { WorkerDescriptor } from "threads/dist/master/pool-types";
-import { ObservablePromise } from "threads/dist/observable-promise";
-
 import { LoadedCache } from "../Caches";
 import { NpcSpawn } from "../data/npc/NpcSpawn";
 import { ObjSpawn } from "../data/obj/ObjSpawn";
 import { MinimapData } from "./MinimapData";
 import { RenderDataLoader } from "./RenderDataLoader";
-import { RenderDataWorker } from "./RenderDataWorker";
+import type { RenderDataWorker } from "./RenderDataWorker";
+import { WorkerPool } from "./WorkerRpc";
 
-type RenderDataWorkerThread = ModuleThread<RenderDataWorker>;
-
-function spawnWorker(): Promise<RenderDataWorkerThread> {
-    const worker = new Worker(new URL("./RenderDataWorker", import.meta.url));
-    return spawn<RenderDataWorker>(worker);
+function createWorker(): Worker {
+    return new Worker(new URL("./RenderDataWorker.ts", import.meta.url), { type: "module" });
 }
 
 export class RenderDataWorkerPool {
     static create(size: number): RenderDataWorkerPool {
-        const pool = Pool(() => spawnWorker(), size);
-        const workers = pool["workers"] as WorkerDescriptor<RenderDataWorkerThread>[];
-        return new RenderDataWorkerPool(pool, workers, size);
+        return new RenderDataWorkerPool(new WorkerPool(createWorker, size), size);
     }
 
     constructor(
-        readonly pool: Pool<RenderDataWorkerThread>,
-        readonly workers: WorkerDescriptor<RenderDataWorkerThread>[],
+        readonly pool: WorkerPool<RenderDataWorker>,
         readonly size: number,
     ) {}
 
     initCache(cache: LoadedCache, objSpawns: ObjSpawn[], npcSpawns: NpcSpawn[]): void {
-        for (const worker of this.workers) {
-            worker.init.then((w) => w.initCache(cache, objSpawns, npcSpawns));
-        }
-    }
-
-    async runAll(task: (w: RenderDataWorkerThread) => any): Promise<void> {
-        await Promise.all(this.workers.map((desc) => desc.init.then(task)));
+        this.pool.broadcast((w) => w.call("initCache", cache, objSpawns, npcSpawns));
     }
 
     initLoader(loader: RenderDataLoader<any, any>): Promise<void> {
-        return this.runAll((w) => w.initDataLoader(loader));
+        return this.pool.broadcast((w) => w.call("initDataLoader", loader.__type));
     }
 
     resetLoader(loader: RenderDataLoader<any, any>): Promise<void> {
-        return this.runAll((w) => w.resetDataLoader(loader));
+        return this.pool.broadcast((w) => w.call("resetDataLoader", loader.__type));
     }
 
-    queueLoad<I, D, Loader extends RenderDataLoader<I, D>>(
-        loader: Loader,
-        input: I,
-    ): QueuedTask<RenderDataWorkerThread, D> {
-        return this.pool.queue((w) => w.load(loader, input) as ObservablePromise<D>);
+    queueLoad<I, D, Loader extends RenderDataLoader<I, D>>(loader: Loader, input: I): Promise<D> {
+        return this.pool.queue((w) => w.call("load", loader.__type, input) as Promise<D>);
     }
 
     queueLoadTexture(
@@ -60,10 +41,8 @@ export class RenderDataWorkerPool {
         size: number,
         flipH: boolean,
         brightness: number,
-    ): QueuedTask<RenderDataWorkerThread, Int32Array> {
-        return this.pool.queue(
-            (w) => w.loadTexture(id, size, flipH, brightness) as ObservablePromise<Int32Array>,
-        );
+    ): Promise<Int32Array> {
+        return this.pool.queue((w) => w.call("loadTexture", id, size, flipH, brightness));
     }
 
     queueMapImage(
@@ -71,27 +50,27 @@ export class RenderDataWorkerPool {
         mapY: number,
         level: number,
         drawMapFunctions: boolean,
-    ): QueuedTask<RenderDataWorkerThread, MinimapData | undefined> {
-        return this.pool.queue((w) => w.loadMapImage(mapX, mapY, level, drawMapFunctions));
+    ): Promise<MinimapData | undefined> {
+        return this.pool.queue((w) => w.call("loadMapImage", mapX, mapY, level, drawMapFunctions));
     }
 
     setVars(vars: Int32Array): Promise<void> {
-        return this.runAll((w) => w.setVars(vars));
+        return this.pool.broadcast((w) => w.call("setVars", vars));
     }
 
-    loadCachedMapImages(): QueuedTask<RenderDataWorkerThread, Map<number, string>> {
-        return this.pool.queue((w) => w.loadCachedMapImages());
+    loadCachedMapImages(): Promise<Map<number, string>> {
+        return this.pool.queue((w) => w.call("loadCachedMapImages"));
     }
 
-    exportSprites(): QueuedTask<RenderDataWorkerThread, Blob> {
-        return this.pool.queue((w) => w.exportSpritesToZip());
+    exportSprites(): Promise<Blob> {
+        return this.pool.queue((w) => w.call("exportSpritesToZip"));
     }
 
-    exportTextures(): QueuedTask<RenderDataWorkerThread, Blob> {
-        return this.pool.queue((w) => w.exportTexturesToZip());
+    exportTextures(): Promise<Blob> {
+        return this.pool.queue((w) => w.call("exportTexturesToZip"));
     }
 
-    terminate(): Promise<void> {
-        return this.pool.terminate();
+    terminate(): void {
+        this.pool.terminate();
     }
 }

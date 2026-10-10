@@ -101,7 +101,7 @@ export class CacheIndexDat extends CacheStoreIndexSync {
     static fromStore(
         id: number,
         store: CacheStore<ApiType.SYNC>,
-        indexFile: ArrayBuffer,
+        indexFile: ArrayBufferLike,
     ): CacheIndexDat {
         const table = ReferenceTable.fromArchiveCount(indexFile.byteLength / SectorCluster.SIZE);
         return new CacheIndexDat(id, table, store);

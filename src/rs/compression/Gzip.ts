@@ -1,10 +1,8 @@
-import pako from "pako";
+import { gunzipSync } from "fflate";
 
 export class Gzip {
-    static async initWasm(): Promise<void> {}
-
     static decompress(compressed: Uint8Array): Int8Array {
-        const decompressed = new Int8Array(pako.ungzip(compressed).buffer);
-        return decompressed;
+        const decompressed = gunzipSync(compressed);
+        return new Int8Array(decompressed.buffer, decompressed.byteOffset, decompressed.byteLength);
     }
 }

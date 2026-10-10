@@ -1,5 +1,3 @@
-import { SerializerImplementation } from "threads";
-
 import { SdMapDataLoader } from "../webgl/loader/SdMapDataLoader";
 import { WorkerState } from "./RenderDataWorker";
 
@@ -23,27 +21,14 @@ const loaders = {
     sdMapDataLoader: new SdMapDataLoader(),
 };
 
-type RenderDataLoaders = typeof loaders;
+export type RenderDataLoaders = typeof loaders;
 
-const loaderSerializerNamePrefix = "$RenderDataLoader$";
+export type RenderDataLoaderType = keyof RenderDataLoaders;
 
-export const renderDataLoaderSerializer: SerializerImplementation = {
-    serialize(value, defaultHandler) {
-        if (value && value.__type) {
-            return loaderSerializerNamePrefix + value.__type;
-        } else {
-            return defaultHandler(value);
-        }
-    },
-    deserialize(value, defaultHandler) {
-        if (value && typeof value === "string" && value.startsWith(loaderSerializerNamePrefix)) {
-            const type = value.substring(loaderSerializerNamePrefix.length);
-            if (type in loaders) {
-                return loaders[type as keyof RenderDataLoaders];
-            }
-            throw new Error("Unknown loader type: " + type);
-        } else {
-            return defaultHandler(value);
-        }
-    },
-};
+export function getRenderDataLoader(type: RenderDataLoaderType): RenderDataLoaders[typeof type] {
+    const loader = loaders[type];
+    if (!loader) {
+        throw new Error("Unknown loader type: " + type);
+    }
+    return loader;
+}

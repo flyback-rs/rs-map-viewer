@@ -1,7 +1,6 @@
-const fs = require("fs");
-const AdmZip = require("adm-zip");
-
-const readline = require("readline");
+import AdmZip from "adm-zip";
+import fs from "node:fs";
+import readline from "node:readline";
 
 const rl = readline.createInterface({
     input: process.stdin,

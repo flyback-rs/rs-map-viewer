@@ -1,7 +1,4 @@
-import JSZip from "jszip";
-import { TransferDescriptor } from "threads";
-import { registerSerializer } from "threads";
-import { Transfer, expose } from "threads/worker";
+import { Zippable, zip } from "fflate";
 
 import { CacheSystem } from "../../rs/cache/CacheSystem";
 import { ConfigType } from "../../rs/cache/ConfigType";
@@ -11,7 +8,6 @@ import {
     getCacheLoaderFactory,
 } from "../../rs/cache/loader/CacheLoaderFactory";
 import { Bzip2 } from "../../rs/compression/Bzip2";
-import { Gzip } from "../../rs/compression/Gzip";
 import { BasTypeLoader } from "../../rs/config/bastype/BasTypeLoader";
 import { LocModelLoader } from "../../rs/config/loctype/LocModelLoader";
 import { LocTypeLoader } from "../../rs/config/loctype/LocTypeLoader";
@@ -35,11 +31,10 @@ import { LoadedCache } from "../Caches";
 import { NpcSpawn } from "../data/npc/NpcSpawn";
 import { ObjSpawn } from "../data/obj/ObjSpawn";
 import { MinimapData, loadMinimapBlob } from "./MinimapData";
-import { RenderDataLoader, renderDataLoaderSerializer } from "./RenderDataLoader";
+import { RenderDataLoaderType, getRenderDataLoader } from "./RenderDataLoader";
+import { Transfer, expose, transfer } from "./WorkerRpc";
 
-registerSerializer(renderDataLoaderSerializer);
-
-const compressionPromise = Promise.all([Bzip2.initWasm(), Gzip.initWasm()]);
+const compressionPromise = Bzip2.initWasm();
 const hasherPromise = Hasher.init();
 
 export type WorkerState = {
@@ -197,21 +192,22 @@ const worker = {
         console.log("init worker", cache.info);
         workerStatePromise = initWorker(cache, objSpawns, npcSpawns);
     },
-    initDataLoader<I, D>(dataLoader: RenderDataLoader<I, D>) {
-        dataLoader.init();
+    initDataLoader(loaderType: RenderDataLoaderType) {
+        getRenderDataLoader(loaderType).init();
     },
-    resetDataLoader<I, D>(dataLoader: RenderDataLoader<I, D>) {
-        dataLoader.reset();
+    resetDataLoader(loaderType: RenderDataLoaderType) {
+        getRenderDataLoader(loaderType).reset();
     },
-    async load<I, D>(
-        dataLoader: RenderDataLoader<I, D>,
-        input: I,
-    ): Promise<TransferDescriptor<D> | undefined> {
+    async load(
+        loaderType: RenderDataLoaderType,
+        input: any,
+    ): Promise<Transfer<unknown> | undefined> {
         const workerState = await workerStatePromise;
         if (!workerState) {
             throw new Error("Worker not initialized");
         }
 
+        const dataLoader = getRenderDataLoader(loaderType);
         const { data, transferables } = await dataLoader.load(workerState, input);
 
         clearCache(workerState);
@@ -219,14 +215,14 @@ const worker = {
         if (!data) {
             return undefined;
         }
-        return Transfer<D>(data, transferables);
+        return transfer(data, transferables);
     },
     async loadTexture(
         id: number,
         size: number,
         flipH: boolean,
         brightness: number,
-    ): Promise<TransferDescriptor<Int32Array>> {
+    ): Promise<Transfer<Int32Array>> {
         const workerState = await workerStatePromise;
         if (!workerState) {
             throw new Error("Worker not initialized");
@@ -234,7 +230,7 @@ const worker = {
 
         const pixels = workerState.textureLoader.getPixelsArgb(id, size, flipH, brightness);
 
-        return Transfer(pixels, [pixels.buffer]);
+        return transfer(pixels, [pixels.buffer]);
     },
     async loadMapImage(
         mapX: number,
@@ -308,17 +304,17 @@ const worker = {
             throw new Error("Worker not initialized");
         }
 
-        const zip = new JSZip();
+        const files: Zippable = {};
 
         const cacheType = workerState.cache.type;
 
         if (cacheType === "dat2") {
-            await exportSpritesToZip(workerState.cacheSystem, zip);
+            await exportSpritesToZip(workerState.cacheSystem, files);
         } else if (cacheType === "dat") {
-            await exportDatSpritesToZip(workerState.cacheSystem, zip);
+            await exportDatSpritesToZip(workerState.cacheSystem, files);
         }
 
-        return zip.generateAsync({ type: "blob" });
+        return zipToBlob(files);
     },
     async exportTexturesToZip(): Promise<Blob> {
         const workerState = await workerStatePromise;
@@ -326,7 +322,7 @@ const worker = {
             throw new Error("Worker not initialized");
         }
 
-        const zip = new JSZip();
+        const files: Zippable = {};
 
         const textureLoader = workerState.textureLoader;
 
@@ -351,16 +347,13 @@ const worker = {
 
                 ctx.putImageData(imageData, 0, 0);
 
-                const dataUrl = await offscreenCanvasToPng(canvas);
-
-                const pngData = atob(dataUrl.split(",")[1]);
-                zip.file(id + ".png", pngData, { binary: true });
+                files[id + ".png"] = await offscreenCanvasToPng(canvas);
             } catch (e) {
                 console.error("Failed to export texture", id, e);
             }
         }
 
-        return zip.generateAsync({ type: "blob" });
+        return zipToBlob(files);
     },
 };
 
@@ -386,44 +379,46 @@ async function initCachedMapImage(
     mapImageUrls.set(getMapSquareId(mapX, mapY), url);
 }
 
-async function offscreenCanvasToPng(canvas: OffscreenCanvas): Promise<string> {
+async function offscreenCanvasToPng(canvas: OffscreenCanvas): Promise<Uint8Array> {
     const blob = await canvas.convertToBlob({ type: "image/png" });
-
-    const reader = new FileReader();
-
-    const dataUrlPromise = new Promise<string>((resolve) => {
-        reader.onload = () => {
-            resolve(reader.result as string);
-        };
-    });
-
-    reader.readAsDataURL(blob);
-
-    return await dataUrlPromise;
+    return new Uint8Array(await blob.arrayBuffer());
 }
 
-async function addSpritesToZip(zip: JSZip, id: number, sprites: IndexedSprite[]) {
+function zipToBlob(files: Zippable): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+        // PNGs are already compressed
+        zip(files, { level: 0 }, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(new Blob([data], { type: "application/zip" }));
+            }
+        });
+    });
+}
+
+async function addSpritesToZip(files: Zippable, id: number, sprites: IndexedSprite[]) {
+    let dir = files;
     if (sprites.length > 1) {
-        zip = zip.folder(id.toString())!;
+        dir = {};
+        files[id.toString()] = dir;
     }
     for (let i = 0; i < sprites.length; i++) {
         const sprite = sprites[i];
         sprite.normalize();
 
         const canvas = sprite.getCanvas();
-        const dataUrl = await offscreenCanvasToPng(canvas);
 
         let fileName = id + ".png";
         if (sprites.length > 1) {
             fileName = i + ".png";
         }
 
-        const pngData = atob(dataUrl.split(",")[1]);
-        zip.file(fileName, pngData, { binary: true });
+        dir[fileName] = await offscreenCanvasToPng(canvas);
     }
 }
 
-async function exportSpritesToZip(cacheSystem: CacheSystem, zip: JSZip): Promise<void> {
+async function exportSpritesToZip(cacheSystem: CacheSystem, files: Zippable): Promise<void> {
     const spriteIndex = cacheSystem.getIndex(IndexType.DAT2.sprites);
 
     const promises: Promise<any>[] = [];
@@ -433,13 +428,13 @@ async function exportSpritesToZip(cacheSystem: CacheSystem, zip: JSZip): Promise
         if (!sprites) {
             continue;
         }
-        promises.push(addSpritesToZip(zip, id, sprites));
+        promises.push(addSpritesToZip(files, id, sprites));
     }
 
     await Promise.all(promises);
 }
 
-async function exportDatSpritesToZip(cacheSystem: CacheSystem, zip: JSZip): Promise<void> {
+async function exportDatSpritesToZip(cacheSystem: CacheSystem, files: Zippable): Promise<void> {
     const configIndex = cacheSystem.getIndex(IndexType.DAT.configs);
     const mediaArchive = configIndex.getArchive(ConfigType.DAT.media);
 
@@ -462,7 +457,7 @@ async function exportDatSpritesToZip(cacheSystem: CacheSystem, zip: JSZip): Prom
                 break;
             }
         }
-        promises.push(addSpritesToZip(zip, fileId, sprites));
+        promises.push(addSpritesToZip(files, fileId, sprites));
     }
 
     await Promise.all(promises);

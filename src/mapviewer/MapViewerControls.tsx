@@ -1,11 +1,11 @@
-import FileSaver from "file-saver";
 import { vec3 } from "gl-matrix";
 import { Leva, button, buttonGroup, folder, useControls } from "leva";
 import { ButtonGroupOpts, Schema } from "leva/dist/declarations/src/types";
-import { memo, useEffect, useState } from "react";
+import { JSX, memo, useEffect, useState } from "react";
 
 import { DownloadProgress } from "../rs/cache/CacheFiles";
 import { isTouchDevice } from "../util/DeviceUtil";
+import { saveBlob } from "../util/DownloadUtil";
 import { lerp, slerp } from "../util/MathUtil";
 import { loadCacheFiles } from "./Caches";
 import { CameraView, ProjectionType } from "./Camera";
@@ -412,7 +412,7 @@ export const MapViewerControls = memo(
                                 mapViewer.workerPool
                                     .exportSprites()
                                     .then((zipBlob) => {
-                                        FileSaver.saveAs(
+                                        saveBlob(
                                             zipBlob,
                                             `sprites_${mapViewer.loadedCache.info.name}.zip`,
                                         );
@@ -432,7 +432,7 @@ export const MapViewerControls = memo(
                                 mapViewer.workerPool
                                     .exportTextures()
                                     .then((zipBlob) => {
-                                        FileSaver.saveAs(
+                                        saveBlob(
                                             zipBlob,
                                             `textures_${mapViewer.loadedCache.info.name}.zip`,
                                         );

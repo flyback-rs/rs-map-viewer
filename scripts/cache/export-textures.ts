@@ -3,6 +3,7 @@ import sharp from "sharp";
 
 import { CacheSystem } from "../../src/rs/cache/CacheSystem";
 import { getCacheLoaderFactory } from "../../src/rs/cache/loader/CacheLoaderFactory";
+import { Bzip2 } from "../../src/rs/compression/Bzip2";
 import { loadCache, loadCacheInfos, loadCacheList } from "./load-util";
 
 function saveArgbArrayToPng(pixels: Int32Array, width: number, height: number, outputPath: string) {
@@ -28,6 +29,8 @@ function saveArgbArrayToPng(pixels: Int32Array, width: number, height: number, o
 }
 
 const SIZE = 128;
+
+await Bzip2.initWasm();
 
 const caches = loadCacheInfos();
 const cacheList = loadCacheList(caches);

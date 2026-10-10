@@ -37,7 +37,7 @@ export class CacheFiles {
         signal?: AbortSignal,
         progressListener?: ProgressListener,
     ): Promise<CacheFiles> {
-        const files = new Map<string, ArrayBuffer>();
+        const files = new Map<string, ArrayBufferLike>();
 
         const cache = await caches.open(cacheName);
 
@@ -83,7 +83,7 @@ export class CacheFiles {
         signal?: AbortSignal,
         progressListener?: ProgressListener,
     ): Promise<CacheFiles> {
-        const files = new Map<string, ArrayBuffer>();
+        const files = new Map<string, ArrayBufferLike>();
 
         const cache = await caches.open(cacheName);
 
@@ -119,7 +119,7 @@ export class CacheFiles {
         signal?: AbortSignal,
         progressListener?: ProgressListener,
     ): Promise<CacheFiles> {
-        const files = new Map<string, ArrayBuffer>();
+        const files = new Map<string, ArrayBufferLike>();
 
         const cache = await caches.open(cacheName);
 
@@ -166,7 +166,7 @@ export class CacheFiles {
         return new CacheFiles(files);
     }
 
-    constructor(readonly files: Map<string, ArrayBuffer>) {}
+    constructor(readonly files: Map<string, ArrayBufferLike>) {}
 }
 
 export type DownloadProgress = {
@@ -177,7 +177,7 @@ export type DownloadProgress = {
 
 export type ProgressListener = (progress: DownloadProgress) => void;
 
-function ReadableBufferStream(ab: ArrayBuffer): ReadableStream<Uint8Array> {
+function ReadableBufferStream(ab: ArrayBufferLike): ReadableStream<Uint8Array> {
     return new ReadableStream({
         start(controller) {
             controller.enqueue(new Uint8Array(ab));
@@ -222,7 +222,7 @@ async function toBufferParts(
     return parts;
 }
 
-function partsToBuffer(parts: Uint8Array[], shared: boolean): ArrayBuffer {
+function partsToBuffer(parts: Uint8Array[], shared: boolean): ArrayBufferLike {
     let totalLength = 0;
     for (const part of parts) {
         totalLength += part.byteLength;
@@ -240,7 +240,7 @@ function partsToBuffer(parts: Uint8Array[], shared: boolean): ArrayBuffer {
 
 type CachedFile = {
     name: string;
-    data: ArrayBuffer;
+    data: ArrayBufferLike;
 };
 
 async function fetchCachedFile(

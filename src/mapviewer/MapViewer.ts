@@ -1,5 +1,5 @@
 import { vec3 } from "gl-matrix";
-import { URLSearchParamsInit } from "react-router-dom";
+import { URLSearchParamsInit } from "react-router";
 
 import { OsrsMenuEntry } from "../components/rs/menu/OsrsMenu";
 import { MenuTargetType } from "../rs/MenuEntry";

@@ -126,7 +126,7 @@ export class SkeletalBone {
             this.invertedModelMatrices[poseId] = mat4.invert(
                 mat4.create(),
                 this.getModelMatrix(poseId),
-            );
+            )!;
         }
         return this.invertedModelMatrices[poseId];
     }
