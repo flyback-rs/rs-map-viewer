@@ -69,11 +69,50 @@ function rewriteWasmBz2Require(code: string, id: string): string | null {
     );
 }
 
+function readLeb128(bytes: Uint8Array, offset: number): [value: number, offset: number] {
+    let value = 0;
+    let shift = 0;
+    let byte: number;
+    do {
+        byte = bytes[offset++];
+        value |= (byte & 0x7f) << shift;
+        shift += 7;
+    } while (byte & 0x80);
+    return [value >>> 0, offset];
+}
+
+// Removes custom sections (debug info, names), they aren't needed to run the module
+function stripWasmCustomSections(wasm: Uint8Array): Uint8Array {
+    const sections: Uint8Array[] = [wasm.subarray(0, 8)];
+    let offset = 8;
+    while (offset < wasm.length) {
+        const [size, contentOffset] = readLeb128(wasm, offset + 1);
+        const end = contentOffset + size;
+        if (wasm[offset] !== 0) {
+            sections.push(wasm.subarray(offset, end));
+        }
+        offset = end;
+    }
+    return Buffer.concat(sections);
+}
+
 function wasmBz2(): Plugin {
     return {
         name: "wasm-bz2",
         enforce: "pre",
         transform: rewriteWasmBz2Require,
+        generateBundle(_, bundle) {
+            // The published module is ~90% debug info
+            for (const asset of Object.values(bundle)) {
+                if (
+                    asset.type === "asset" &&
+                    asset.fileName.endsWith(".wasm") &&
+                    typeof asset.source !== "string"
+                ) {
+                    asset.source = stripWasmCustomSections(asset.source);
+                }
+            }
+        },
     };
 }
 
@@ -140,5 +179,7 @@ export default defineConfig({
     build: {
         outDir: "build",
         assetsInlineLimit: (file) => (file.endsWith(".json") ? false : undefined),
+        // The main chunk holds the cache decoding the main thread needs at startup
+        chunkSizeWarningLimit: 1500,
     },
 });
