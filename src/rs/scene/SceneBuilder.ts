@@ -41,8 +41,13 @@ export class SceneBuilder {
 
     static readonly WATER_OVERLAY_ID = 5;
 
+    // Decoded map files are read-only, and neighbouring scenes share them through their borders
+    static readonly MAP_FILE_CACHE_SIZE = 64;
+
     newTerrainFormat: boolean;
     centerLocHeightWithSize: boolean;
+
+    mapFileCache = new Map<number, Int8Array | undefined>();
 
     constructor(
         readonly cacheInfo: CacheInfo,
@@ -63,12 +68,34 @@ export class SceneBuilder {
         return info.game === "runescape" && info.revision <= 225;
     }
 
+    private getCachedMapFile(
+        key: number,
+        load: () => Int8Array | undefined,
+    ): Int8Array | undefined {
+        let data = this.mapFileCache.get(key);
+        if (data !== undefined || this.mapFileCache.has(key)) {
+            // Move to the back of the map's insertion order (most recently used)
+            this.mapFileCache.delete(key);
+        } else {
+            data = load();
+            if (this.mapFileCache.size >= SceneBuilder.MAP_FILE_CACHE_SIZE) {
+                this.mapFileCache.delete(this.mapFileCache.keys().next().value!);
+            }
+        }
+        this.mapFileCache.set(key, data);
+        return data;
+    }
+
     getTerrainData(mapX: number, mapY: number): Int8Array | undefined {
-        return this.mapFileLoader.getTerrainData(mapX, mapY);
+        return this.getCachedMapFile(getMapSquareId(mapX, mapY) * 2, () =>
+            this.mapFileLoader.getTerrainData(mapX, mapY),
+        );
     }
 
     getLocData(mapX: number, mapY: number): Int8Array | undefined {
-        return this.mapFileLoader.getLocData(mapX, mapY, this.xteasMap);
+        return this.getCachedMapFile(getMapSquareId(mapX, mapY) * 2 + 1, () =>
+            this.mapFileLoader.getLocData(mapX, mapY, this.xteasMap),
+        );
     }
 
     getNpcSpawnData(mapX: number, mapY: number): Int8Array | undefined {

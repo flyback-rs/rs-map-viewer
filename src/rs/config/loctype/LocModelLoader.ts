@@ -23,6 +23,9 @@ export type ContourGroundInfo = {
 export class LocModelLoader {
     static mergeLocModelsCache: ModelData[] = new Array(4);
 
+    // Raw model data is never mutated after caching, so it's kept (LRU) across map loads
+    static readonly MODEL_DATA_CACHE_SIZE = 2048;
+
     modelDataCache: Map<number, ModelData>;
     entityCache: Map<number, Model | ModelData>;
     modelCache: Map<number, Model>;
@@ -46,7 +49,11 @@ export class LocModelLoader {
             key += 0x10000;
         }
         let model = this.modelDataCache.get(key);
-        if (!model) {
+        if (model) {
+            // Move to the back of the map's insertion order (most recently used)
+            this.modelDataCache.delete(key);
+            this.modelDataCache.set(key, model);
+        } else {
             model = this.modelLoader.getModel(id);
             if (model) {
                 if (mirrored) {
@@ -387,7 +394,12 @@ export class LocModelLoader {
     }
 
     clearCache() {
-        this.modelDataCache.clear();
+        for (const key of this.modelDataCache.keys()) {
+            if (this.modelDataCache.size <= LocModelLoader.MODEL_DATA_CACHE_SIZE) {
+                break;
+            }
+            this.modelDataCache.delete(key);
+        }
         this.entityCache.clear();
         this.modelCache.clear();
     }
