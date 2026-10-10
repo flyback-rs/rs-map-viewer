@@ -6,9 +6,10 @@
   "engines": {
     "node": ">=22.22.1"
   },
+  "packageManager": "pnpm@12.10.1",
   "scripts": {
     "start": "vite",
-    "build": "yarn typecheck && vite build",
+    "build": "pnpm typecheck && vite build",
     "preview": "vite preview",
     "typecheck": "tsc && tsc -p tsconfig.node.json",
     "lint": "prettier --write \"./**/*.{js,ts,jsx,tsx,css,md}\"",

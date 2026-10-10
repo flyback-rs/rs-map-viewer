@@ -8,17 +8,17 @@ A webapp for exploring current and historical versions of RuneScape.
 
 ## Running locally
 
-Requires [Node.js](https://nodejs.org/) 22.22 or newer.
+Requires [Node.js](https://nodejs.org/) 22.22 or newer and [pnpm](https://pnpm.io/).
 
 ```
 $ git clone https://github.com/dennisdev/rs-map-viewer.git
 $ cd rs-map-viewer
-$ yarn install
-$ yarn run download-caches
-$ yarn start
+$ pnpm install
+$ pnpm download-caches
+$ pnpm start
 ```
 
-`yarn build` type checks and creates a production build in `build/`, which `yarn preview` serves locally.
+`pnpm build` type checks and creates a production build in `build/`, which `pnpm preview` serves locally.
 
 ## Credits
 

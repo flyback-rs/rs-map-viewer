@@ -77,7 +77,7 @@ function wasmBz2(): Plugin {
     };
 }
 
-// Serves the locally downloaded caches (yarn download-caches) at /caches in dev and preview
+// Serves the locally downloaded caches (pnpm download-caches) at /caches in dev and preview
 function serveCaches(): Plugin {
     const cachesDir = path.resolve("caches");
     const handler: Connect.NextHandleFunction = (
