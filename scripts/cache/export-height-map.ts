@@ -5,6 +5,7 @@ import { CacheSystem } from "../../src/rs/cache/CacheSystem";
 import { getCacheLoaderFactory } from "../../src/rs/cache/loader/CacheLoaderFactory";
 import { Bzip2 } from "../../src/rs/compression/Bzip2";
 import { LocModelLoader } from "../../src/rs/config/loctype/LocModelLoader";
+import { Scene } from "../../src/rs/scene/Scene";
 import { LocLoadType, SceneBuilder } from "../../src/rs/scene/SceneBuilder";
 import { loadCache, loadCacheInfos, loadCacheList } from "./load-util";
 
@@ -80,6 +81,46 @@ const sceneBuilder = new SceneBuilder(
     loadedCache.xteas,
 );
 
+function loadHeightMap(
+    baseX: number,
+    baseY: number,
+    sizeX: number,
+    sizeY: number,
+    level: number,
+    maxHeight: number,
+): Uint8Array {
+    const heightMap = new Uint8Array(sizeX * sizeY);
+
+    // A single scene of the whole area needs more than the default heap, so build it one map
+    // square at a time. Tile heights only depend on their own map square's terrain.
+    const chunkSize = Scene.MAP_SQUARE_SIZE;
+    for (let chunkY = 0; chunkY < sizeY; chunkY += chunkSize) {
+        for (let chunkX = 0; chunkX < sizeX; chunkX += chunkSize) {
+            const chunkSizeX = Math.min(chunkSize, sizeX - chunkX);
+            const chunkSizeY = Math.min(chunkSize, sizeY - chunkY);
+            const scene = sceneBuilder.buildScene(
+                baseX + chunkX,
+                baseY + chunkY,
+                chunkSizeX,
+                chunkSizeY,
+                false,
+                LocLoadType.NO_MODELS,
+            );
+            const tileHeights = scene.tileHeights[level];
+            for (let y = 0; y < chunkSizeY; y++) {
+                for (let x = 0; x < chunkSizeX; x++) {
+                    // Flipped vertically, images start at the top
+                    const index = (sizeY - 1 - (chunkY + y)) * sizeX + chunkX + x;
+                    const height = Math.min((-tileHeights[x][y] / maxHeight) * 0xff, 0xff);
+                    heightMap[index] = height;
+                }
+            }
+        }
+    }
+
+    return heightMap;
+}
+
 function exportHeightMap() {
     const level = 0;
     const baseX = 1024;
@@ -91,16 +132,7 @@ function exportHeightMap() {
 
     const maxHeight = 2040;
 
-    const scene = sceneBuilder.buildScene(baseX, baseY, sizeX, sizeY, false, LocLoadType.NO_MODELS);
-
-    const heightMap = new Uint8Array(sizeX * sizeY);
-    for (let y = 0; y < sizeY; y++) {
-        for (let x = 0; x < sizeX; x++) {
-            const index = (sizeY - y) * sizeX + x;
-            const height = Math.min((-scene.tileHeights[level][x][y] / maxHeight) * 0xff, 0xff);
-            heightMap[index] = height;
-        }
-    }
+    const heightMap = loadHeightMap(baseX, baseY, sizeX, sizeY, level, maxHeight);
 
     saveHeightMapToPng(heightMap, sizeX, sizeY, `./height-map.png`);
 }
