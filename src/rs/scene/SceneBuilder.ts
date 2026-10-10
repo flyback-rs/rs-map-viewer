@@ -289,14 +289,14 @@ export class SceneBuilder {
                     if (!scene.isWithinBounds(level, sceneX, sceneY)) {
                         continue;
                     }
-                    if ((scene.tileRenderFlags[level][x][y] & 0x1) === 1) {
+                    if ((scene.tileRenderFlags[level][sceneX][sceneY] & 0x1) === 1) {
                         let realLevel = level;
-                        if ((scene.tileRenderFlags[1][x][y] & 0x2) === 2) {
+                        if ((scene.tileRenderFlags[1][sceneX][sceneY] & 0x2) === 2) {
                             realLevel = level - 1;
                         }
 
                         if (realLevel >= 0) {
-                            scene.collisionMaps[realLevel].setBlockedByFloor(x, y);
+                            scene.collisionMaps[realLevel].setBlockedByFloor(sceneX, sceneY);
                         }
                     }
                 }
