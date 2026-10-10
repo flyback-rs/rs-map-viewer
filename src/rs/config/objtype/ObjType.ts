@@ -226,6 +226,12 @@ export class ObjType extends Type {
             }
         } else if (opcode === 42) {
             this.shiftClickIndex = buffer.readByte();
+        } else if (opcode === 43 && this.cacheInfo.game === "oldschool") {
+            // subops
+            buffer.readUnsignedByte();
+            while (buffer.readUnsignedByte() !== 0) {
+                this.readString(buffer);
+            }
         } else if (opcode === 44) {
             if (this.cacheInfo.game === "oldschool" && this.cacheInfo.revision >= 237) {
                 this.model = buffer.readInt();
@@ -284,6 +290,9 @@ export class ObjType extends Type {
             this.note = buffer.readUnsignedShort();
         } else if (opcode === 98) {
             this.noteTemplate = buffer.readUnsignedShort();
+        } else if (opcode === 99 && this.cacheInfo.game === "oldschool") {
+            // full recolor
+            buffer.readUnsignedShort();
         } else if (opcode >= 100 && opcode < 110) {
             if (!this.countObj) {
                 this.countObj = new Array(10);
@@ -345,6 +354,14 @@ export class ObjType extends Type {
             this.placeholderTemplate = buffer.readUnsignedShort();
         } else if (opcode >= 150 && opcode < 155) {
             buffer.readUnsignedShort();
+        } else if (opcode === 160 && this.cacheInfo.game === "oldschool") {
+            this.stackability = ObjStackability.NEVER;
+        } else if (opcode === 161 && this.cacheInfo.game === "oldschool") {
+            // holding whitelist
+            const count = buffer.readUnsignedShort();
+            for (let i = 0; i < count; i++) {
+                buffer.readUnsignedShort();
+            }
         } else if (opcode === 200) {
             // subop
             buffer.readUnsignedByte();
@@ -369,6 +386,8 @@ export class ObjType extends Type {
             buffer.readNullString();
         } else if (opcode === 249) {
             this.params = Type.readParamsMap(buffer, this.params);
+        } else if (opcode === 251) {
+            // bronzeman = true;
         } else {
             throw new Error("ObjType: Opcode " + opcode + " not implemented.");
         }

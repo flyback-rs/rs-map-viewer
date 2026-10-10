@@ -351,6 +351,9 @@ export class NpcType extends Type {
             } else {
                 const iconHeight = buffer.readUnsignedShort();
             }
+        } else if (opcode === 124 && this.cacheInfo.game === "oldschool") {
+            // height
+            buffer.readUnsignedShort();
         } else if (opcode === 125) {
             this.spawnDirection = buffer.readByte();
         } else if (opcode === 127) {
