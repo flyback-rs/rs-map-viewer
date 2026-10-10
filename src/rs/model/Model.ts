@@ -838,27 +838,37 @@ export class Model extends Entity {
         tz: number,
         op14: boolean,
     ) {
+        // Locals are written back to Int32Arrays, `| 0` keeps the intermediate int32 wrapping
+        const vertexLabels = this.vertexLabels;
+        const verticesX = this.verticesX;
+        const verticesY = this.verticesY;
+        const verticesZ = this.verticesZ;
         switch (type) {
             case SeqTransformType.ORIGIN:
                 Model.resetAnimateOrigin();
 
                 let groupVertexCount = 0;
+                let originX = 0;
+                let originY = 0;
+                let originZ = 0;
 
                 for (const label of labels) {
-                    if (label < this.vertexLabels.length) {
-                        for (const v of this.vertexLabels[label]) {
-                            Model.animateOriginX += this.verticesX[v];
-                            Model.animateOriginY += this.verticesY[v];
-                            Model.animateOriginZ += this.verticesZ[v];
-                            groupVertexCount++;
+                    if (label < vertexLabels.length) {
+                        const group = vertexLabels[label];
+                        for (let i = 0; i < group.length; i++) {
+                            const v = group[i];
+                            originX += verticesX[v];
+                            originY += verticesY[v];
+                            originZ += verticesZ[v];
                         }
+                        groupVertexCount += group.length;
                     }
                 }
 
                 if (groupVertexCount > 0) {
-                    Model.animateOriginX = tx + ((Model.animateOriginX / groupVertexCount) | 0);
-                    Model.animateOriginY = ty + ((Model.animateOriginY / groupVertexCount) | 0);
-                    Model.animateOriginZ = tz + ((Model.animateOriginZ / groupVertexCount) | 0);
+                    Model.animateOriginX = tx + ((originX / groupVertexCount) | 0);
+                    Model.animateOriginY = ty + ((originY / groupVertexCount) | 0);
+                    Model.animateOriginZ = tz + ((originZ / groupVertexCount) | 0);
                 } else {
                     Model.animateOriginX = tx;
                     Model.animateOriginY = ty;
@@ -867,90 +877,93 @@ export class Model extends Entity {
                 break;
             case SeqTransformType.TRANSLATE:
                 for (const label of labels) {
-                    if (label < this.vertexLabels.length) {
-                        for (const v of this.vertexLabels[label]) {
-                            this.verticesX[v] += tx;
-                            this.verticesY[v] += ty;
-                            this.verticesZ[v] += tz;
+                    if (label < vertexLabels.length) {
+                        const group = vertexLabels[label];
+                        for (let i = 0; i < group.length; i++) {
+                            const v = group[i];
+                            verticesX[v] += tx;
+                            verticesY[v] += ty;
+                            verticesZ[v] += tz;
                         }
                     }
                 }
                 break;
-            case SeqTransformType.ROTATE:
+            case SeqTransformType.ROTATE: {
+                const originX = Model.animateOriginX;
+                const originY = Model.animateOriginY;
+                const originZ = Model.animateOriginZ;
+
+                const angleX = (tx & 0xff) * 8;
+                const angleY = (ty & 0xff) * 8;
+                const angleZ = (tz & 0xff) * 8;
+
+                const sinX = SINE[angleX];
+                const cosX = COSINE[angleX];
+                const sinY = SINE[angleY];
+                const cosY = COSINE[angleY];
+                const sinZ = SINE[angleZ];
+                const cosZ = COSINE[angleZ];
+
                 for (const label of labels) {
-                    if (label < this.vertexLabels.length) {
-                        for (const v of this.vertexLabels[label]) {
-                            this.verticesX[v] -= Model.animateOriginX;
-                            this.verticesY[v] -= Model.animateOriginY;
-                            this.verticesZ[v] -= Model.animateOriginZ;
-
-                            const angleX = (tx & 0xff) * 8;
-                            const angleY = (ty & 0xff) * 8;
-                            const angleZ = (tz & 0xff) * 8;
-
-                            // const angleX = tx;
-                            // const angleY = ty;
-                            // const angleZ = tz;
+                    if (label < vertexLabels.length) {
+                        const group = vertexLabels[label];
+                        for (let i = 0; i < group.length; i++) {
+                            const v = group[i];
+                            let x = (verticesX[v] - originX) | 0;
+                            let y = (verticesY[v] - originY) | 0;
+                            let z = (verticesZ[v] - originZ) | 0;
 
                             // roll
                             if (angleZ !== 0) {
-                                const sin = SINE[angleZ];
-                                const cos = COSINE[angleZ];
-                                const temp =
-                                    (sin * this.verticesY[v] + cos * this.verticesX[v]) >> 16;
-                                this.verticesY[v] =
-                                    (cos * this.verticesY[v] - sin * this.verticesX[v]) >> 16;
-                                this.verticesX[v] = temp;
+                                const temp = (sinZ * y + cosZ * x) >> 16;
+                                y = (cosZ * y - sinZ * x) >> 16;
+                                x = temp;
                             }
 
                             // pitch
                             if (angleX !== 0) {
-                                const sin = SINE[angleX];
-                                const cos = COSINE[angleX];
-                                const temp =
-                                    (cos * this.verticesY[v] - sin * this.verticesZ[v]) >> 16;
-                                this.verticesZ[v] =
-                                    (sin * this.verticesY[v] + cos * this.verticesZ[v]) >> 16;
-                                this.verticesY[v] = temp;
+                                const temp = (cosX * y - sinX * z) >> 16;
+                                z = (sinX * y + cosX * z) >> 16;
+                                y = temp;
                             }
 
                             // yaw
                             if (angleY !== 0) {
-                                const sin = SINE[angleY];
-                                const cos = COSINE[angleY];
-                                const temp =
-                                    (sin * this.verticesZ[v] + cos * this.verticesX[v]) >> 16;
-                                this.verticesZ[v] =
-                                    (cos * this.verticesZ[v] - sin * this.verticesX[v]) >> 16;
-                                this.verticesX[v] = temp;
+                                const temp = (sinY * z + cosY * x) >> 16;
+                                z = (cosY * z - sinY * x) >> 16;
+                                x = temp;
                             }
 
-                            this.verticesX[v] += Model.animateOriginX;
-                            this.verticesY[v] += Model.animateOriginY;
-                            this.verticesZ[v] += Model.animateOriginZ;
+                            verticesX[v] = x + originX;
+                            verticesY[v] = y + originY;
+                            verticesZ[v] = z + originZ;
                         }
                     }
                 }
                 break;
-            case SeqTransformType.SCALE:
+            }
+            case SeqTransformType.SCALE: {
+                const originX = Model.animateOriginX;
+                const originY = Model.animateOriginY;
+                const originZ = Model.animateOriginZ;
+
                 for (const label of labels) {
-                    if (label < this.vertexLabels.length) {
-                        for (const v of this.vertexLabels[label]) {
-                            this.verticesX[v] -= Model.animateOriginX;
-                            this.verticesY[v] -= Model.animateOriginY;
-                            this.verticesZ[v] -= Model.animateOriginZ;
+                    if (label < vertexLabels.length) {
+                        const group = vertexLabels[label];
+                        for (let i = 0; i < group.length; i++) {
+                            const v = group[i];
+                            const x = (verticesX[v] - originX) | 0;
+                            const y = (verticesY[v] - originY) | 0;
+                            const z = (verticesZ[v] - originZ) | 0;
 
-                            this.verticesX[v] = ((tx * this.verticesX[v]) / 128) | 0;
-                            this.verticesY[v] = ((ty * this.verticesY[v]) / 128) | 0;
-                            this.verticesZ[v] = ((tz * this.verticesZ[v]) / 128) | 0;
-
-                            this.verticesX[v] += Model.animateOriginX;
-                            this.verticesY[v] += Model.animateOriginY;
-                            this.verticesZ[v] += Model.animateOriginZ;
+                            verticesX[v] = (((tx * x) / 128) | 0) + originX;
+                            verticesY[v] = (((ty * y) / 128) | 0) + originY;
+                            verticesZ[v] = (((tz * z) / 128) | 0) + originZ;
                         }
                     }
                 }
                 break;
+            }
             case SeqTransformType.ALPHA:
                 if (this.faceLabels && this.faceAlphas) {
                     for (const label of labels) {
