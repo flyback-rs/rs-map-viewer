@@ -26,7 +26,7 @@ $ pnpm start
 - [RuneLite](https://github.com/runelite/runelite)
 - [OpenRS2 Archive](https://archive.openrs2.org/) - Caches
 - [RuneScape Archive](https://rs-archive.github.io/) - Caches
-- [OSRS Wiki](https://oldschool.runescape.wiki/) - Item spawns
+- [OSRS Wiki](https://oldschool.runescape.wiki/) - Item spawns, var names
 - [2004scape](https://github.com/2004scape/Server) - Npc spawns
 - [2009scape](https://gitlab.com/2009scape/2009scape) - Npc spawns
 - [RuneStar](https://github.com/RuneStar/fonts) - Fonts

@@ -11,6 +11,7 @@ import { RS_TO_DEGREES } from "../rs/MathConstants";
 import { DownloadProgress } from "../rs/cache/CacheFiles";
 import { formatBytes } from "../util/BytesUtil";
 import { isTouchDevice } from "../util/DeviceUtil";
+import { AreaVarsPanel } from "./AreaVarsPanel";
 import { MapViewer } from "./MapViewer";
 import "./MapViewerContainer.css";
 import { MapViewerControls } from "./MapViewerControls";
@@ -31,6 +32,7 @@ export function MapViewerContainer({ mapViewer }: MapViewerContainerProps): JSX.
     const [fps, setFps] = useState(0);
     const [cameraYaw, setCameraYaw] = useState(mapViewer.camera.getYaw());
     const [isWorldMapOpen, setWorldMapOpen] = useState<boolean>(false);
+    const [isAreaVarsOpen, setAreaVarsOpen] = useState<boolean>(false);
 
     const [menuProps, setMenuProps] = useState<OsrsMenuProps | undefined>(undefined);
 
@@ -75,6 +77,15 @@ export function MapViewerContainer({ mapViewer }: MapViewerContainerProps): JSX.
     const resetCameraYaw = useCallback(() => {
         mapViewer.camera.setYaw(0);
     }, [mapViewer]);
+
+    const toggleAreaVars = useCallback(() => {
+        setAreaVarsOpen((open) => !open);
+    }, []);
+
+    const closeAreaVars = useCallback(() => {
+        setAreaVarsOpen(false);
+        renderer.canvas.focus();
+    }, [renderer]);
 
     const openWorldMap = useCallback(() => {
         setWorldMapOpen(true);
@@ -145,7 +156,12 @@ export function MapViewerContainer({ mapViewer }: MapViewerContainerProps): JSX.
                 setRenderer={setRenderer}
                 setHideUi={setHideUi}
                 setDownloadProgress={setDownloadProgress}
+                toggleAreaVars={toggleAreaVars}
             />
+
+            {!hideUi && isAreaVarsOpen && (
+                <AreaVarsPanel mapViewer={mapViewer} onClose={closeAreaVars} />
+            )}
 
             {!hideUi && (
                 <span>

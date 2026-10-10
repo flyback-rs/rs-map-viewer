@@ -4,6 +4,7 @@ import { ButtonGroupOpts, Schema } from "leva/dist/declarations/src/types";
 import { JSX, memo, useEffect, useState } from "react";
 
 import { DownloadProgress } from "../rs/cache/CacheFiles";
+import { VarType } from "../rs/config/vartype/VarType";
 import { isTouchDevice } from "../util/DeviceUtil";
 import { saveBlob } from "../util/DownloadUtil";
 import { lerp, slerp } from "../util/MathUtil";
@@ -25,11 +26,7 @@ interface MapViewerControlsProps {
     setRenderer: (renderer: MapViewerRenderer) => void;
     setHideUi: (hideUi: boolean | ((hideUi: boolean) => boolean)) => void;
     setDownloadProgress: (progress: DownloadProgress | undefined) => void;
-}
-
-enum VarType {
-    VARP = 0,
-    VARBIT = 1,
+    toggleAreaVars: () => void;
 }
 
 export const MapViewerControls = memo(
@@ -39,6 +36,7 @@ export const MapViewerControls = memo(
         setRenderer,
         setHideUi,
         setDownloadProgress,
+        toggleAreaVars,
     }: MapViewerControlsProps): JSX.Element => {
         const mapViewer = renderer.mapViewer;
 
@@ -344,6 +342,7 @@ export const MapViewerControls = memo(
                 ),
                 Vars: folder(
                     {
+                        "Area Vars": button(toggleAreaVars),
                         Type: {
                             value: varType,
                             options: {
@@ -363,17 +362,7 @@ export const MapViewerControls = memo(
                             onChange: setVarValue,
                         },
                         Set: button(() => {
-                            const varManager = mapViewer.varManager;
-                            let updated = false;
-                            if (varType === VarType.VARP) {
-                                updated = varManager.setVarp(varId, varValue);
-                            } else {
-                                updated = varManager.setVarbit(varId, varValue);
-                            }
-                            if (updated) {
-                                mapViewer.updateVars();
-                                mapViewer.renderer.mapManager.clearMaps();
-                            }
+                            mapViewer.setVar(varType, varId, varValue);
                         }),
                         Clear: button(() => {
                             mapViewer.varManager.clear();

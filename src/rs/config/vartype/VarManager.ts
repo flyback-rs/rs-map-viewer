@@ -8,6 +8,9 @@ export class VarManager {
 
     values: Int32Array;
 
+    // Incremented on every change, so views of the values know when to update
+    revision: number = 0;
+
     constructor(varbitLoader: VarBitTypeLoader) {
         this.varbitLoader = varbitLoader;
         this.values = new Int32Array(8000);
@@ -15,10 +18,12 @@ export class VarManager {
 
     clear(): void {
         this.values.fill(0);
+        this.revision++;
     }
 
     set(values: Int32Array): void {
         this.values.set(values);
+        this.revision++;
     }
 
     setQuestsCompleted(questTypeLoader: QuestTypeLoader): void {
@@ -49,6 +54,7 @@ export class VarManager {
             return false;
         }
         this.values[id] = value;
+        this.revision++;
         return true;
     }
 
@@ -73,6 +79,7 @@ export class VarManager {
         }
         mask <<= startBit;
         this.values[baseVar] = ((value << startBit) & mask) | (this.values[baseVar] & ~mask);
+        this.revision++;
         return true;
     }
 }

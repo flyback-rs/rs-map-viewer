@@ -11,6 +11,7 @@ import { NpcTypeLoader } from "../rs/config/npctype/NpcTypeLoader";
 import { ObjTypeLoader } from "../rs/config/objtype/ObjTypeLoader";
 import { SeqTypeLoader } from "../rs/config/seqtype/SeqTypeLoader";
 import { VarManager } from "../rs/config/vartype/VarManager";
+import { VarType } from "../rs/config/vartype/VarType";
 import { MapFileIndex, getMapSquareId } from "../rs/map/MapFileIndex";
 import { SeqFrameLoader } from "../rs/model/seq/SeqFrameLoader";
 import { Pathfinder } from "../rs/pathfinder/Pathfinder";
@@ -279,6 +280,19 @@ export class MapViewer {
 
     updateVars(): void {
         this.workerPool.setVars(this.varManager.values);
+    }
+
+    // Sets a var and reloads the maps if its value changed
+    setVar(type: VarType, id: number, value: number): boolean {
+        const updated =
+            type === VarType.VARP
+                ? this.varManager.setVarp(id, value)
+                : this.varManager.setVarbit(id, value);
+        if (updated) {
+            this.updateVars();
+            this.renderer.mapManager.clearMaps();
+        }
+        return updated;
     }
 
     static getCachedMapImageUrl(mapX: number, mapY: number): string {
