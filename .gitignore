@@ -24,3 +24,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 caches/
+
+# Script outputs (pnpm export-textures, pnpm export-height-map)
+/textures/
+/height-map.png
