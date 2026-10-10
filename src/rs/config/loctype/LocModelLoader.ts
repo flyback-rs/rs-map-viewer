@@ -302,6 +302,8 @@ export class LocModelLoader {
             this.modelCache.set(key, model);
         }
 
+        const cachedModel = model;
+
         if (seqId !== -1 && frame !== -1) {
             const seqType = this.seqTypeLoader.load(seqId);
             model = this.transformModel(model, seqType, frame, rotation);
@@ -309,6 +311,10 @@ export class LocModelLoader {
 
         const isDiagonal = type === LocModelType.NORMAL && rotation > 3;
         if (isDiagonal) {
+            // Don't rotate the cached model, every other use of it would be rotated again
+            if (model === cachedModel) {
+                model = Model.copyAnimated(model, true, true);
+            }
             model.rotate(256);
         }
 
