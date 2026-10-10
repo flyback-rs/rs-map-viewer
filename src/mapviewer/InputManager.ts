@@ -35,6 +35,9 @@ export class InputManager {
     deltaMouseX: number = 0;
     deltaMouseY: number = 0;
 
+    // Scrolled amount this frame, in pixels
+    deltaWheel: number = 0;
+
     isTouch: boolean = false;
 
     pickX: number = -1;
@@ -51,6 +54,9 @@ export class InputManager {
         }
         this.element = element;
 
+        // Keyboard input is read from the element, so it needs focus
+        element.focus({ preventScroll: true });
+
         window.addEventListener("gamepadconnected", this.onGamepadConnected);
         window.addEventListener("gamepaddisconnected", this.onGamepadDisconnected);
 
@@ -63,6 +69,7 @@ export class InputManager {
         element.addEventListener("mousemove", this.onMouseMove);
         element.addEventListener("mouseup", this.onMouseUp);
         element.addEventListener("mouseleave", this.onMouseLeave);
+        element.addEventListener("wheel", this.onWheel, { passive: false });
 
         element.addEventListener("touchstart", this.onTouchStart);
         element.addEventListener("touchmove", this.onTouchMove);
@@ -90,6 +97,7 @@ export class InputManager {
         this.element.removeEventListener("mousemove", this.onMouseMove);
         this.element.removeEventListener("mouseup", this.onMouseUp);
         this.element.removeEventListener("mouseleave", this.onMouseLeave);
+        this.element.removeEventListener("wheel", this.onWheel);
 
         this.element.removeEventListener("touchstart", this.onTouchStart);
         this.element.removeEventListener("touchmove", this.onTouchMove);
@@ -184,8 +192,18 @@ export class InputManager {
     };
 
     private onMouseDown = (event: MouseEvent) => {
-        if (event.button !== 0 || !this.element) {
+        if (!this.element) {
             return;
+        }
+        // Prevented middle clicks (and the wheel) don't focus the element by default
+        this.element.focus({ preventScroll: true });
+        // Left or middle button drag to look around
+        if (event.button !== 0 && event.button !== 1) {
+            return;
+        }
+        if (event.button === 1) {
+            // Don't start the browser's middle click autoscroll
+            event.preventDefault();
         }
         const [x, y] = getMousePos(this.element, event);
         this.dragX = x;
@@ -216,6 +234,18 @@ export class InputManager {
 
     private onMouseLeave = (event: MouseEvent) => {
         this.resetMouse();
+    };
+
+    private onWheel = (event: WheelEvent) => {
+        event.preventDefault();
+        this.element?.focus({ preventScroll: true });
+        let delta = event.deltaY;
+        if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+            delta *= 33;
+        } else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+            delta *= 800;
+        }
+        this.deltaWheel += delta;
     };
 
     private onTouchStart = (event: TouchEvent) => {
@@ -293,6 +323,7 @@ export class InputManager {
         }
         this.deltaMouseX = 0;
         this.deltaMouseY = 0;
+        this.deltaWheel = 0;
         this.pickX = -1;
         this.pickY = -1;
         this.lastMouseX = this.mouseX;

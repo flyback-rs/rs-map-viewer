@@ -1,5 +1,5 @@
 import { vec3 } from "gl-matrix";
-import { Leva, button, buttonGroup, folder, useControls } from "leva";
+import { Leva, button, buttonGroup, folder, levaStore, useControls } from "leva";
 import { ButtonGroupOpts, Schema } from "leva/dist/declarations/src/types";
 import { JSX, memo, useEffect, useState } from "react";
 
@@ -52,7 +52,7 @@ export const MapViewerControls = memo(
             : "WASD,\nR or E (up),\nF or C (down),\nUse SHIFT to go faster, or TAB to go slower.";
         const directionControls = isTouchDevice
             ? "Right joystick."
-            : "Arrow Keys or Click and Drag. Double click for pointerlock.";
+            : "Arrow Keys or Click and Drag (left or middle mouse button). Scroll to zoom. Double click for pointerlock.";
 
         const [varType, setVarType] = useState<VarType>(VarType.VARBIT);
         const [varId, setVarId] = useState(0);
@@ -449,6 +449,23 @@ export const MapViewerControls = memo(
             ],
         );
 
+        // Keep the ortho zoom slider in sync with zooming using the mouse wheel
+        useEffect(() => {
+            if (projectionType !== ProjectionType.ORTHO) {
+                return;
+            }
+            const interval = setInterval(() => {
+                const zoom = Math.round(mapViewer.camera.orthoZoom);
+                if (
+                    levaStore.getInput(ORTHO_ZOOM_PATH) &&
+                    levaStore.get(ORTHO_ZOOM_PATH) !== zoom
+                ) {
+                    levaStore.setValueAtPath(ORTHO_ZOOM_PATH, zoom, false);
+                }
+            }, 100);
+            return () => clearInterval(interval);
+        }, [mapViewer, projectionType]);
+
         return (
             <Leva
                 titleBar={{ filter: false }}
@@ -459,6 +476,9 @@ export const MapViewerControls = memo(
         );
     },
 );
+
+// Leva path of the "Ortho Zoom" control in the Camera folder
+const ORTHO_ZOOM_PATH = "Camera.Ortho Zoom";
 
 function createCameraControls(mapViewer: MapViewer): Schema {
     if (mapViewer.camera.projectionType === ProjectionType.PERSPECTIVE) {
@@ -480,8 +500,12 @@ function createCameraControls(mapViewer: MapViewer): Schema {
                 min: 1,
                 max: 60,
                 step: 1,
-                onChange: (v: number) => {
-                    mapViewer.camera.orthoZoom = v;
+                onChange: (v: number, _path: string, context: { fromPanel: boolean }) => {
+                    // Ignore updates synced from the camera, the slider rounds them
+                    if (context.fromPanel) {
+                        mapViewer.camera.orthoZoom = v;
+                        mapViewer.camera.updated = true;
+                    }
                 },
             },
         };

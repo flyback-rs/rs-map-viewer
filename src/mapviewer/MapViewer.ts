@@ -123,7 +123,7 @@ export class MapViewer {
 
         if (this.camera.projectionType === ProjectionType.ORTHO) {
             params["pt"] = "o";
-            params["z"] = this.camera.orthoZoom.toString();
+            params["z"] = Number(this.camera.orthoZoom.toFixed(2)).toString();
         }
 
         if (this.loadedCache.info.name !== this.cacheList.latest.name) {
@@ -151,7 +151,7 @@ export class MapViewer {
 
         const zoom = searchParams.get("z");
         if (zoom) {
-            this.camera.orthoZoom = parseInt(zoom);
+            this.camera.orthoZoom = parseFloat(zoom);
         }
 
         if (cx && cy && cz) {

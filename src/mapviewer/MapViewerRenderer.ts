@@ -3,6 +3,7 @@ import { Schema } from "leva/dist/declarations/src/types";
 import { Renderer } from "../components/renderer/Renderer";
 import { SceneBuilder } from "../rs/scene/SceneBuilder";
 import { clamp } from "../util/MathUtil";
+import { ProjectionType } from "./Camera";
 import { getAxisDeadzone } from "./InputManager";
 import { MapManager, MapSquare } from "./MapManager";
 import { MapViewer } from "./MapViewer";
@@ -154,6 +155,26 @@ export abstract class MapViewerRenderer<T extends MapSquare = MapSquare> extends
             } else {
                 camera.updatePitch(camera.pitch, deltaMouseY * 0.9);
                 camera.updateYaw(camera.yaw, deltaMouseX * -0.9);
+            }
+        }
+
+        // Scroll to zoom, a wheel notch is ~100 pixels
+        const scrollNotches = -inputManager.deltaWheel / 100;
+        if (scrollNotches !== 0) {
+            if (camera.projectionType === ProjectionType.PERSPECTIVE) {
+                let speedMult = 1.0;
+                if (inputManager.isShiftDown()) {
+                    speedMult = 10.0;
+                }
+                if (inputManager.isKeyDown("Tab")) {
+                    speedMult = 0.1;
+                }
+                const distance = 2 * this.mapViewer.cameraSpeed * speedMult * scrollNotches;
+                // Move along the view direction
+                camera.move(0, 0, -distance, true);
+            } else {
+                camera.orthoZoom = clamp(camera.orthoZoom * 1.1 ** scrollNotches, 1, 60);
+                camera.updated = true;
             }
         }
     }
