@@ -52,7 +52,8 @@ export type ModelMergeGroup = {
 
 export class SceneBuffer {
     vertexBuf: VertexBuffer;
-    indices: number[] = [];
+    indices: Int32Array;
+    indexCount: number = 0;
 
     drawCommands: DrawCommand[] = [];
     drawCommandsAlpha: DrawCommand[] = [];
@@ -68,12 +69,35 @@ export class SceneBuffer {
 
     usedTextureIds = new Set<number>();
 
+    modelFacesCache = new WeakMap<Model, SplitModelFaces>();
+
     constructor(
         readonly textureLoader: TextureLoader,
         readonly textureIdIndexMap: Map<number, number>,
         initVertexCount: number,
     ) {
         this.vertexBuf = new VertexBuffer(initVertexCount);
+        this.indices = new Int32Array(initVertexCount * 3);
+    }
+
+    private ensureIndexCapacity(count: number): void {
+        if (this.indexCount + count > this.indices.length) {
+            const newIndices = new Int32Array(
+                Math.max(this.indices.length * 2, this.indexCount + count),
+            );
+            newIndices.set(this.indices.subarray(0, this.indexCount));
+            this.indices = newIndices;
+        }
+    }
+
+    addIndex(index: number): void {
+        this.ensureIndexCapacity(1);
+        this.indices[this.indexCount++] = index;
+    }
+
+    // Copy of the used indices
+    indexArray(): Int32Array {
+        return this.indices.slice(0, this.indexCount);
     }
 
     vertexCount(): number {
@@ -81,7 +105,7 @@ export class SceneBuffer {
     }
 
     indexByteOffset(): number {
-        return this.indices.length * 4;
+        return this.indexCount * 4;
     }
 
     addTerrainTile(tile: SceneTile, offsetX: number, offsetY: number): void {
@@ -109,7 +133,7 @@ export class SceneBuffer {
                     0,
                 );
 
-                this.indices.push(index);
+                this.addIndex(index);
             }
         }
     }
@@ -165,11 +189,26 @@ export class SceneBuffer {
         return this.vertexCount() - terrainStartVertexCount;
     }
 
-    addModelAnimFrame(model: Model, transparent: boolean): DrawRange {
-        const faces = getModelFaces(model).filter(
-            (face) => isModelFaceTransparent(this.textureLoader, face) === transparent,
-        );
+    // Faces only depend on colors, textures, alphas and priorities, so they're cached per model
+    getModelFaces(model: Model): SplitModelFaces {
+        let faces = this.modelFacesCache.get(model);
+        if (!faces) {
+            faces = splitModelFaces(this.textureLoader, model);
+            this.modelFacesCache.set(model, faces);
+        }
+        return faces;
+    }
 
+    // Returns the opaque and transparent draw ranges of an animation frame
+    addModelAnimFrame(model: Model): [DrawRange, DrawRange] {
+        const faces = splitModelFaces(this.textureLoader, model);
+        return [
+            this.addModelFaces(model, faces.opaque),
+            this.addModelFaces(model, faces.transparent),
+        ];
+    }
+
+    private addModelFaces(model: Model, faces: ModelFaces): DrawRange {
         const offset = this.indexByteOffset();
         this.addModel(model, faces);
         const elements = (this.indexByteOffset() - offset) / 4;
@@ -287,9 +326,8 @@ export class SceneBuffer {
         for (const sceneModel of group.models) {
             const model = sceneModel.model;
 
-            const faces = getModelFaces(model).filter(
-                (face) => isModelFaceTransparent(this.textureLoader, face) === group.transparent,
-            );
+            const modelFaces = this.getModelFaces(model);
+            const faces = group.transparent ? modelFaces.transparent : modelFaces.opaque;
 
             const vertexOffset: vec3 = [
                 sceneModel.sceneX,
@@ -366,7 +404,7 @@ export class SceneBuffer {
         }
     }
 
-    addModel(model: Model, faces: ModelFace[], offset?: vec3, reuseVertices: boolean = true): void {
+    addModel(model: Model, faces: ModelFaces, offset?: vec3, reuseVertices: boolean = true): void {
         if (faces.length === 0) {
             return;
         }
@@ -398,11 +436,13 @@ export class SceneBuffer {
             throw new Error("Model has face textures but no texture coordinates");
         }
 
-        for (const face of faces) {
-            const index = face.index;
-            const alpha = face.alpha;
-            const priority = face.priority;
-            const textureId = face.textureId;
+        const priorities = model.faceRenderPriorities;
+
+        for (let i = 0; i < faces.length; i++) {
+            const index = faces[i];
+            const textureId = getFaceTextureId(model, index);
+            const alpha = getFaceAlpha(model, index, textureId);
+            const priority = priorities ? priorities[index] : 0;
             const textureIndex = this.textureIdIndexMap.get(textureId) ?? -1;
 
             let hslA = model.faceColors1[index];
@@ -492,69 +532,64 @@ export class SceneBuffer {
                 reuseVertices,
             );
 
-            this.indices.push(index0, index1, index2);
+            this.ensureIndexCapacity(3);
+            this.indices[this.indexCount++] = index0;
+            this.indices[this.indexCount++] = index1;
+            this.indices[this.indexCount++] = index2;
         }
     }
 }
 
-export type ModelFace = {
-    index: number;
-    alpha: number;
-    priority: number;
-    textureId: number;
+// Indices of a model's visible faces
+export type ModelFaces = Int32Array;
+
+export type SplitModelFaces = {
+    opaque: ModelFaces;
+    transparent: ModelFaces;
 };
 
-export function isModelFaceTransparent(textureLoader: TextureLoader, face: ModelFace): boolean {
-    return (
-        face.alpha < 0xff || (face.textureId !== -1 && textureLoader.isTransparent(face.textureId))
-    );
+function getFaceTextureId(model: Model, index: number): number {
+    return model.faceTextures ? model.faceTextures[index] : -1;
 }
 
-export function getModelFaces(model: Model): ModelFace[] {
-    const faces: ModelFace[] = [];
-
+function getFaceAlpha(model: Model, index: number, textureId: number): number {
     const faceTransparencies = model.faceAlphas;
+    if (faceTransparencies && textureId === -1) {
+        return 0xff - (faceTransparencies[index] & 0xff);
+    }
+    return 0xff;
+}
 
-    const priorities = model.faceRenderPriorities;
+export function splitModelFaces(textureLoader: TextureLoader, model: Model): SplitModelFaces {
+    const faceCount = model.faceCount;
+    const opaque = new Int32Array(faceCount);
+    const transparent = new Int32Array(faceCount);
+    let opaqueCount = 0;
+    let transparentCount = 0;
 
-    for (let index = 0; index < model.faceCount; index++) {
-        let hslC = model.faceColors3[index];
-
-        if (hslC === -2) {
+    const faceColors3 = model.faceColors3;
+    for (let index = 0; index < faceCount; index++) {
+        if (faceColors3[index] === -2) {
             continue;
         }
 
-        let textureId = -1;
-        if (model.faceTextures) {
-            textureId = model.faceTextures[index];
-        }
-
-        let alpha = 0xff;
-        if (faceTransparencies && textureId === -1) {
-            alpha = 0xff - (faceTransparencies[index] & 0xff);
-        }
-        // if (faceTransparencies) {
-        //     alpha = 0xff - (faceTransparencies[index] & 0xff);
-        // }
-
+        const textureId = getFaceTextureId(model, index);
+        const alpha = getFaceAlpha(model, index, textureId);
         if (alpha === 0 || alpha === 0x1) {
             continue;
         }
 
-        let priority = 0;
-        if (priorities) {
-            priority = priorities[index];
+        if (alpha < 0xff || (textureId !== -1 && textureLoader.isTransparent(textureId))) {
+            transparent[transparentCount++] = index;
+        } else {
+            opaque[opaqueCount++] = index;
         }
-
-        faces.push({
-            index,
-            alpha,
-            priority,
-            textureId,
-        });
     }
 
-    return faces;
+    return {
+        opaque: opaque.subarray(0, opaqueCount),
+        transparent: transparent.subarray(0, transparentCount),
+    };
 }
 
 export function createModelInfoTextureData(drawCommands: DrawCommand[]): Uint16Array {

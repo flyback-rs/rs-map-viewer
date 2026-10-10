@@ -21,13 +21,10 @@ import { ModelHashBuffer, getModelHash } from "../buffer/ModelHashBuffer";
 import {
     ContourGroundType,
     DrawCommand,
-    ModelFace,
     ModelMergeGroup,
     SceneBuffer,
     SceneModel,
     createModelInfoTextureData,
-    getModelFaces,
-    isModelFaceTransparent,
 } from "../buffer/SceneBuffer";
 import { LocAnimatedGroup } from "../loc/LocAnimatedGroup";
 import { SceneLocEntity } from "../loc/SceneLocEntity";
@@ -164,7 +161,6 @@ function createModelGroups(
 
 function addSceneModels(
     modelHashBuf: ModelHashBuffer,
-    textureLoader: TextureLoader,
     sceneBuf: SceneBuffer,
     sceneModels: SceneModel[],
     minimizeDrawCalls: boolean,
@@ -184,17 +180,8 @@ function addSceneModels(
     const modelGroupMap: Map<number, ModelMergeGroup> = new Map();
     for (const sceneModels of groupedModels.values()) {
         const model = sceneModels[0].model;
-        const faces = getModelFaces(model);
-
-        const opaqueFaces: ModelFace[] = [];
-        const transparentFaces: ModelFace[] = [];
-        for (const face of faces) {
-            if (isModelFaceTransparent(textureLoader, face)) {
-                transparentFaces.push(face);
-            } else {
-                opaqueFaces.push(face);
-            }
-        }
+        const { opaque: opaqueFaces, transparent: transparentFaces } =
+            sceneBuf.getModelFaces(model);
 
         const mergeModels: SceneModel[] = [];
         const instancedModels: SceneModel[] = [];
@@ -315,8 +302,7 @@ function addLocAnimationFrames(
             i,
         );
         if (model) {
-            frames[i] = sceneBuf.addModelAnimFrame(model, false);
-            framesAlpha[i] = sceneBuf.addModelAnimFrame(model, true);
+            [frames[i], framesAlpha[i]] = sceneBuf.addModelAnimFrame(model);
             if (framesAlpha[i][1] > 0) {
                 alphaFrameCount++;
             }
@@ -482,8 +468,7 @@ function addNpcAnimationFrames(
     for (let i = 0; i < frameCount; i++) {
         const model = npcModelLoader.getModel(npcType, seqId, i);
         if (model) {
-            frames[i] = sceneBuf.addModelAnimFrame(model, false);
-            framesAlpha[i] = sceneBuf.addModelAnimFrame(model, true);
+            [frames[i], framesAlpha[i]] = sceneBuf.addModelAnimFrame(model);
             if (framesAlpha[i][1] > 0) {
                 alphaFrameCount++;
             }
@@ -624,7 +609,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
             createObjSceneModels(objModelLoader, sceneModels, scene, borderSize, objSpawns);
         }
 
-        addSceneModels(this.modelHashBuf!, textureLoader, sceneBuf, sceneModels, minimizeDrawCalls);
+        addSceneModels(this.modelHashBuf!, sceneBuf, sceneModels, minimizeDrawCalls);
 
         // Animated locs
         const locsAnimated = sceneBuf.addLocAnimatedGroups(locAnimatedGroups);
@@ -732,7 +717,7 @@ export class SdMapDataLoader implements RenderDataLoader<SdMapLoaderInput, SdMap
         const heightMapTextureData = loadHeightMapTextureData(scene);
 
         const vertices = sceneBuf.vertexBuf.byteArray();
-        const indices = new Int32Array(sceneBuf.indices);
+        const indices = sceneBuf.indexArray();
 
         const minimapBlob = await loadMinimapBlob(
             state.mapImageRenderer,
